@@ -1,0 +1,227 @@
+<!doctype html>
+
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VIP Name Video — Demo</title>
+  <style>
+    :root{--bg:#0b0b0d;--card:#0f1720;--accent:#ff3b3b;--muted:#9aa4b2}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#060607 0%, #0b1220 100%);color:#e6eef6}
+    .wrap{max-width:980px;margin:32px auto;padding:20px}
+    header{display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#ff8a00);display:flex;align-items:center;justify-content:center;font-weight:700}
+    h1{margin:0;font-size:20px}
+    .hero{display:grid;grid-template-columns:1fr 420px;gap:24px;margin-top:28px}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:14px;padding:18px;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    .controls label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .controls input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .row{display:flex;gap:8px;margin-top:10px}
+    .btn{padding:12px 14px;border-radius:10px;border:none;cursor:pointer;font-weight:600}
+    .btn-primary{background:var(--accent);color:#fff}
+    .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .preview{display:flex;flex-direction:column;gap:12px}
+    canvas{width:100%;height:360px;border-radius:10px;background:#000}
+    .meta{font-size:13px;color:var(--muted)}
+    .small{font-size:12px;color:var(--muted)}
+    footer{margin-top:18px;color:var(--muted);font-size:13px}
+    .style-select{display:flex;gap:8px;margin-top:8px}
+    .style-option{padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+    .style-option.active{outline:2px solid rgba(255,255,255,0.06)}
+    .video-preview{width:100%;border-radius:10px;background:#000}
+    @media (max-width:880px){.hero{grid-template-columns:1fr;}.preview{order:-1}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">VIP</div>
+        <div>
+          <h1>VIP Name Video — Demo</h1>
+          <div class="small">Telefon orqali yaratildi — GitHub Pages uchun mos</div>
+        </div>
+      </div>
+      <div class="small">Bu demo: video faqat brauzerda yaratiladi</div>
+    </header><div class="hero">
+  <div class="card">
+    <h2 style="margin-top:0">Yozuvni kiriting</h2>
+    <div class="controls">
+      <label for="name">Ism yoki matn</label>
+      <input id="name" type="text" placeholder="Masalan: Olimjon" value="Olimjon">
+
+      <label style="margin-top:12px">Uslubni tanlang</label>
+      <div class="style-select" id="styles">
+        <div class="style-option active" data-style="modern">Modern (qizil)</div>
+        <div class="style-option" data-style="classic">Classic (oq)</div>
+        <div class="style-option" data-style="glow">Neon Glow</div>
+      </div>
+
+      <div class="row">
+        <button class="btn btn-primary" id="generate">Video yaratish</button>
+        <button class="btn btn-ghost" id="download" disabled>Yuklab olish</button>
+        <button class="btn btn-ghost" id="reset">Tozalash</button>
+      </div>
+
+      <p class="meta">Video uzunligi: <span id="duration">3</span> soniya. Format: webm (brauzerda yaratiladi)</p>
+      <p class="small">Eslatma: bu demo serverga hech narsani yubormaydi — hammasi telefon/kompyuter brauzerida ishlaydi.</p>
+    </div>
+  </div>
+
+  <div class="preview">
+    <div class="card">
+      <canvas id="stage" width="960" height="540"></canvas>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center;justify-content:space-between">
+        <div class="small">Oldindan ko‘rish</div>
+        <div class="small" id="status">Tayyor</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="small">Yaratilgan video</div>
+      <video id="videoPreview" class="video-preview" controls playsinline></video>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div>Qanday ishlaydi: siz ismni yozasiz → brauzer canvas’da animatsiyani chizadi → MediaRecorder yordamida 3 soniya yozib olinadi → video ko‘rinadi va yuklab olinadi.</div>
+  <div style="margin-top:8px">GitHub Pages uchun: shu faylni `index.html` nomi bilan repo’nga qo‘yib, Pages’ni yoqing.</div>
+</footer>
+
+  </div><script>
+const canvas = document.getElementById('stage');
+const ctx = canvas.getContext('2d');
+const nameInput = document.getElementById('name');
+const generateBtn = document.getElementById('generate');
+const downloadBtn = document.getElementById('download');
+const resetBtn = document.getElementById('reset');
+const statusEl = document.getElementById('status');
+const videoPreview = document.getElementById('videoPreview');
+const stylesEl = document.getElementById('styles');
+let chosenStyle = 'modern';
+let recorder, recordedChunks = [];
+const DURATION = 3; // seconds
+const FPS = 30;
+
+document.getElementById('duration').textContent = DURATION;
+
+// style selection
+stylesEl.addEventListener('click', e=>{
+  const el = e.target.closest('.style-option');
+  if(!el) return;
+  Array.from(stylesEl.children).forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  chosenStyle = el.dataset.style;
+});
+
+function drawFrame(t, totalTime, text){
+  // clear
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // background gradient
+  const g = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+  if(chosenStyle==='modern'){
+    g.addColorStop(0,'#0f1115'); g.addColorStop(1,'#071019');
+  } else if(chosenStyle==='classic'){
+    g.addColorStop(0,'#ffffff'); g.addColorStop(1,'#e6eef6');
+  } else {
+    g.addColorStop(0,'#020006'); g.addColorStop(1,'#0b0022');
+  }
+  ctx.fillStyle = g; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // animated circles
+  const cx = canvas.width/2, cy = canvas.height/2;
+  for(let i=0;i<6;i++){
+    const prog = (t/1000)/totalTime;
+    const r = 80 + i*40 + Math.sin(t/300 + i)*30*prog;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    if(chosenStyle==='modern') ctx.strokeStyle = `rgba(255,59,59,${0.06 + i*0.02})`;
+    else if(chosenStyle==='classic') ctx.strokeStyle = `rgba(20,20,20,${0.06 + i*0.02})`;
+    else ctx.strokeStyle = `rgba(120,0,200,${0.06 + i*0.02})`;
+    ctx.lineWidth = 6; ctx.stroke();
+  }
+
+  // text
+  const fontSize = Math.floor(80 + 20*Math.sin(t/500));
+  ctx.font = `bold ${fontSize}px Inter, Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline='middle';
+  if(chosenStyle==='modern'){
+    // shadow + gradient text
+    const tg = ctx.createLinearGradient(0,0,canvas.width,0);
+    tg.addColorStop(0,'#ff8a00'); tg.addColorStop(1,'#ff3b3b');
+    ctx.fillStyle = tg;
+    ctx.shadowBlur = 40; ctx.shadowColor = 'rgba(255,59,59,0.6)';
+  } else if(chosenStyle==='classic'){
+    ctx.fillStyle = '#0b1220'; ctx.shadowBlur = 0;
+  } else {
+    ctx.fillStyle = '#7c00ff'; ctx.shadowBlur = 40; ctx.shadowColor = 'rgba(124,0,255,0.6)';
+  }
+  ctx.fillText(text, cx, cy);
+
+  // small caption
+  ctx.font = '16px Inter, Arial'; ctx.shadowBlur = 0; ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText('VIP shell — created in browser', cx, cy + 80);
+}
+
+async function recordNameVideo(text){
+  statusEl.textContent = 'Yozilmoqda...';
+  recordedChunks = [];
+  const stream = canvas.captureStream(FPS);
+  recorder = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'});
+  recorder.ondataavailable = e=>{ if(e.data && e.data.size) recordedChunks.push(e.data); };
+  recorder.onstop = ()=>{
+    const blob = new Blob(recordedChunks, {type:'video/webm'});
+    const url = URL.createObjectURL(blob);
+    videoPreview.src = url; videoPreview.play();
+    downloadBtn.href = url; downloadBtn.download = (text||'video') + '.webm'; downloadBtn.disabled = false;
+    statusEl.textContent = 'Tayyor';
+  };
+
+  recorder.start();
+  const totalTime = DURATION;
+  const start = performance.now();
+
+  return new Promise(resolve=>{
+    function frame(now){
+      const elapsed = (now - start)/1000;
+      drawFrame(now - start, totalTime, text);
+      if(elapsed < totalTime){
+        requestAnimationFrame(frame);
+      } else {
+        recorder.stop();
+        resolve();
+      }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+generateBtn.addEventListener('click', async ()=>{
+  const name = (nameInput.value || 'Salom').trim();
+  if(!name){ alert('Iltimos, ism kiriting'); return; }
+  generateBtn.disabled = true; downloadBtn.disabled = true; resetBtn.disabled = true;
+  try{
+    await recordNameVideo(name);
+  }catch(err){
+    console.error(err); alert('Sizning brauzeringiz MediaRecorder yoki canvas.captureStream ni qo\'llab-quvvatlamasligi mumkin.');
+  }
+  generateBtn.disabled = false; resetBtn.disabled = false;
+});
+
+resetBtn.addEventListener('click', ()=>{
+  nameInput.value=''; videoPreview.src=''; downloadBtn.disabled = true; statusEl.textContent='Tayyor';
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+});
+
+// download anchor behaviour
+downloadBtn.addEventListener('click', e=>{
+  if(downloadBtn.disabled){ e.preventDefault(); }
+});
+
+// initial blank frame
+ctx.fillStyle='#050509'; ctx.fillRect(0,0,canvas.width,canvas.height);
+ctx.font='28px Inter, Arial'; ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.textAlign='center'; ctx.fillText('Preview area — video will be recorded here', canvas.width/2, canvas.height/2);
+</script></body>
+  </html>
